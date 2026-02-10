@@ -77,3 +77,22 @@ error = np.linalg.norm(points - drifted_points, axis=1)
 print("Mean drift:", error.mean())
 print("Max drift:", error.max())
 
+T = reg.transformation  # 4x4 matrix you printed
+
+# Apply correction to the drifted cloud (in-place)
+pcd_drift_corrected = pcd_drift.transform(T)
+
+o3d.visualization.draw_geometries([pcd_clean, pcd_drift_corrected])
+
+reg = o3d.pipelines.registration.registration_icp(
+    pcd_drift_corrected, pcd_clean, threshold, trans_init,
+    o3d.pipelines.registration.TransformationEstimationPointToPoint()
+)
+
+print("ICP fitness 2:", reg.fitness)
+print("ICP RMSE 2:", reg.inlier_rmse)
+print("Estimated correction 2:\n", reg.transformation)
+
+error = np.linalg.norm(points - drifted_points, axis=1)
+print("Mean drift 2:", error.mean())
+print("Max drift 2:", error.max())
