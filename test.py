@@ -14,7 +14,7 @@ timestamps = data[:, 6]              # Time of each point
 # ---------------------------------------------------------
 # 2. Simulate drift
 # ---------------------------------------------------------
-drift_rate = np.array([5, 0, 0])     # Drift 5 units per second along X
+drift_rate = np.array([0.2, 0, 0])     # Drift 5 units per second along X
 drift = timestamps[:, None] * drift_rate
 drifted_points = points + drift
 
@@ -60,3 +60,20 @@ pcd_drift.colors = o3d.utility.Vector3dVector(
 )
 
 o3d.visualization.draw_geometries([pcd_clean, pcd_drift])
+
+threshold = 0.5  # max correspondence distance
+trans_init = np.eye(4)
+
+reg = o3d.pipelines.registration.registration_icp(
+    pcd_drift, pcd_clean, threshold, trans_init,
+    o3d.pipelines.registration.TransformationEstimationPointToPoint()
+)
+
+print("ICP fitness:", reg.fitness)
+print("ICP RMSE:", reg.inlier_rmse)
+print("Estimated correction:\n", reg.transformation)
+
+error = np.linalg.norm(points - drifted_points, axis=1)
+print("Mean drift:", error.mean())
+print("Max drift:", error.max())
+
