@@ -1,0 +1,11 @@
+# Ignore Python virtual environments
+venv/
+.venv/
+env/
+vcpkgcd vcpkg/
+CMakePresets.json
+drifted_output.txt
+clean_output.txt
+rgbd_dataset_freiburg1_xyz/
+ORB_SLAM3/
+.vs/
