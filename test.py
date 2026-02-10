@@ -1,39 +1,45 @@
 import numpy as np
 import open3d as o3d
 
-# Load the file
+# ---------------------------------------------------------
+# 1. Load Unity point cloud
+# ---------------------------------------------------------
 data = np.loadtxt("test_pointcloud.txt")
 
-# Split columns
-points = data[:, :3]      # X Y Z
-colors = data[:, 3:6] / 255.0  # Normalize RGB to [0,1]
-timestamps = data[:, 6]
+points = data[:, :3]                 # X Y Z
+colors = data[:, 3:6] / 255.0        # Normalize RGB to [0,1]
+timestamps = data[:, 6]              # Time of each point
 
-drift_rate = np.array([5, 0, 0])  # 1 cm per second
+
+# ---------------------------------------------------------
+# 2. Simulate drift
+# ---------------------------------------------------------
+drift_rate = np.array([5, 0, 0])     # Drift 5 units per second along X
 drift = timestamps[:, None] * drift_rate
 drifted_points = points + drift
 
 
-# Create clean cloud (black)
+# ---------------------------------------------------------
+# 3. Create clean and drifted point clouds
+# ---------------------------------------------------------
 pcd_clean = o3d.geometry.PointCloud()
 pcd_clean.points = o3d.utility.Vector3dVector(points)
+pcd_clean.colors = o3d.utility.Vector3dVector(colors)   # IMPORTANT
 
-
-# Create drifted cloud (red)
 pcd_drift = o3d.geometry.PointCloud()
 pcd_drift.points = o3d.utility.Vector3dVector(drifted_points)
+pcd_drift.colors = o3d.utility.Vector3dVector(colors)   # IMPORTANT
 
 
-# pcd_clean = pcd_clean.voxel_down_sample(0.5)
-# pcd_drift = pcd_drift.voxel_down_sample(0.5)
-
-# Save to txt
+# ---------------------------------------------------------
+# 4. Save to TXT (preserving timestamps)
+# ---------------------------------------------------------
 def save_txt_with_time(filename, pcd, timestamps):
-    points = np.asarray(pcd.points)
-    colors = np.asarray(pcd.colors)
+    pts = np.asarray(pcd.points)
+    cols = np.asarray(pcd.colors)
 
     with open(filename, "w") as f:
-        for (p, c, t) in zip(points, colors, timestamps):
+        for (p, c, t) in zip(pts, cols, timestamps):
             r, g, b = (c * 255).astype(int)
             f.write(f"{p[0]} {p[1]} {p[2]} {r} {g} {b} {t}\n")
 
@@ -41,17 +47,16 @@ def save_txt_with_time(filename, pcd, timestamps):
 save_txt_with_time("clean_output.txt", pcd_clean, timestamps)
 save_txt_with_time("drifted_output.txt", pcd_drift, timestamps)
 
-# Visualize
+
+# ---------------------------------------------------------
+# 5. Visualization (black = clean, red = drifted)
+# ---------------------------------------------------------
 pcd_clean.colors = o3d.utility.Vector3dVector(
-    np.zeros_like(points)  #black
+    np.zeros_like(points)  # black
 )
+
 pcd_drift.colors = o3d.utility.Vector3dVector(
     np.tile([1, 0, 0], (points.shape[0], 1))  # red
 )
+
 o3d.visualization.draw_geometries([pcd_clean, pcd_drift])
-
-
-
-
-
-
