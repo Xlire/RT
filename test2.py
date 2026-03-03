@@ -92,3 +92,43 @@ pcd_drift.colors = o3d.utility.Vector3dVector(
 )
 
 o3d.visualization.draw_geometries([pcd_clean, pcd_drift])
+
+# ---------------------------------------------------------
+# 6. Phase 2 — Global Drift Detection with ICP
+# ---------------------------------------------------------
+
+# ICP parameters
+threshold = 0.5  # max correspondence distance
+trans_init = np.eye(4)
+
+reg = o3d.pipelines.registration.registration_icp(
+    pcd_drift, 
+    pcd_clean, 
+    threshold, 
+    trans_init,
+    o3d.pipelines.registration.TransformationEstimationPointToPoint()
+)
+
+print("\n=== Global ICP Results ===")
+print("ICP fitness:", reg.fitness)
+print("ICP RMSE:", reg.inlier_rmse)
+print("Estimated correction transform:\n", reg.transformation)
+
+# Apply correction
+T = reg.transformation
+pcd_drift_corrected = pcd_drift.transform(T)
+
+# Visualize corrected cloud vs clean cloud
+pcd_drift_corrected.colors = o3d.utility.Vector3dVector(np.tile([1,0,0], (points.shape[0],1)))  # red
+
+o3d.visualization.draw_geometries([pcd_clean, pcd_drift_corrected])
+
+# Evaluate error before and after correction
+error_before = np.linalg.norm(points - drifted_points, axis=1)
+error_after = np.linalg.norm(points - np.asarray(pcd_drift_corrected.points), axis=1)
+
+print("\n=== Error Statistics ===")
+print("Mean drift before correction:", error_before.mean())
+print("Max drift before correction:", error_before.max())
+print("Mean drift after correction:", error_after.mean())
+print("Max drift after correction:", error_after.max())
