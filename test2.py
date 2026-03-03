@@ -40,18 +40,48 @@ def random_rotation_matrix(max_angle_deg=10):
     ])
     return R
 
-R = random_rotation_matrix(max_angle_deg=25)  # small rotation
+# R = random_rotation_matrix(max_angle_deg=25)  # small rotation
+theta = np.radians(45)   # rotate 45 degrees to the left
+c, s = np.cos(theta), np.sin(theta)
+
+R = np.array([
+    [ c, 0,  s],
+    [ 0, 1,  0],
+    [-s, 0,  c]
+])
+
+drifted_points = points.copy()
+
+# Select the points that should rotate
+pts = points[drift_mask]
+
+# 1. Find the center of the object
+center = pts.mean(axis=0)
+
+# 2. Move object to origin
+pts_centered = pts - center
+
+# 3. Rotate around Y-axis
+pts_rotated = (R @ pts_centered.T).T
+
+# 4. Move back to original location
+pts_rotated += center
+
+# Save back into the drifted cloud
+drifted_points[drift_mask] = pts_rotated
+
+
 direction = np.random.randn(3)
 direction /= np.linalg.norm(direction)
 
-t = 1.5 * direction  # drift magnitude ~30 cm
+t = 0 * direction  # drift magnitude ~30 cm
 
 # 2.4 Apply rigid transform only to selected points
-drifted_points = points.copy()
-#Look into this 
-drifted_points[drift_mask] = (R @ points[drift_mask].T).T + t
+# drifted_points = points.copy()
+# #Look into this 
+# drifted_points[drift_mask] = (R @ points[drift_mask].T).T + t
 
-print(drifted_points)
+# print(drifted_points)
 
 
 # ---------------------------------------------------------
