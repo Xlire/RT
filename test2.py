@@ -16,7 +16,7 @@ timestamps = data[:, 6]              # Time of each point
 # ---------------------------------------------------------
 
 # 2.1 Define a region (example: points with x > 0 and z < 1)
-region_mask = (points[:, 0] > 0) & (points[:, 2] < 1)
+region_mask = (points[:, 0] > 0) & (points[:, 2] < 10)
 
 # 2.2 Choose a time threshold t0
 t0 = np.percentile(timestamps, 50)   # drift starts halfway through the scan
@@ -40,10 +40,11 @@ def random_rotation_matrix(max_angle_deg=10):
     ])
     return R
 
-R = random_rotation_matrix(max_angle_deg=5)  # small rotation
+R = random_rotation_matrix(max_angle_deg=25)  # small rotation
 direction = np.random.randn(3)
 direction /= np.linalg.norm(direction)
-t = 0.3 * direction  # drift magnitude ~30 cm
+
+t = 1.5 * direction  # drift magnitude ~30 cm
 
 # 2.4 Apply rigid transform only to selected points
 drifted_points = points.copy()
@@ -51,3 +52,44 @@ drifted_points = points.copy()
 drifted_points[drift_mask] = (R @ points[drift_mask].T).T + t
 
 print(drifted_points)
+
+
+# ---------------------------------------------------------
+# 3. Create clean and drifted point clouds
+# ---------------------------------------------------------
+pcd_clean = o3d.geometry.PointCloud()
+pcd_clean.points = o3d.utility.Vector3dVector(points)
+pcd_clean.colors = o3d.utility.Vector3dVector(colors)   # IMPORTANT
+
+pcd_drift = o3d.geometry.PointCloud()
+pcd_drift.points = o3d.utility.Vector3dVector(drifted_points)
+pcd_drift.colors = o3d.utility.Vector3dVector(colors)   # IMPORTANT
+
+# ---------------------------------------------------------
+# 4. Save to TXT (preserving timestamps)
+# ---------------------------------------------------------
+def save_txt_with_time(filename, pcd, timestamps):
+    pts = np.asarray(pcd.points)
+    cols = np.asarray(pcd.colors)
+
+    with open(filename, "w") as f:
+        for (p, c, t) in zip(pts, cols, timestamps):
+            r, g, b = (c * 255).astype(int)
+            f.write(f"{p[0]} {p[1]} {p[2]} {r} {g} {b} {t}\n")
+
+
+save_txt_with_time("clean_output.txt", pcd_clean, timestamps)
+save_txt_with_time("drifted_output.txt", pcd_drift, timestamps)
+
+# ---------------------------------------------------------
+# 5. Visualization (black = clean, red = drifted)
+# ---------------------------------------------------------
+pcd_clean.colors = o3d.utility.Vector3dVector(
+    np.zeros_like(points)  # black
+)
+
+pcd_drift.colors = o3d.utility.Vector3dVector(
+    np.tile([1, 0, 0], (points.shape[0], 1))  # red
+)
+
+o3d.visualization.draw_geometries([pcd_clean, pcd_drift])
