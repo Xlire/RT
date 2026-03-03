@@ -16,7 +16,7 @@ timestamps = data[:, 6]              # Time of each point
 # ---------------------------------------------------------
 
 # 2.1 Define a region (example: points with x > 0 and z < 1)
-region_mask = (points[:, 0] > 0) & (points[:, 2] < 10)
+region_mask = (points[:, 0] > 0) & (points[:, 2] < 1)
 
 # 2.2 Choose a time threshold t0
 t0 = np.percentile(timestamps, 50)   # drift starts halfway through the scan
@@ -40,6 +40,7 @@ def random_rotation_matrix(max_angle_deg=10):
     ])
     return R
 
+<<<<<<< HEAD
 # R = random_rotation_matrix(max_angle_deg=25)  # small rotation
 theta = np.radians(45)   # rotate 45 degrees to the left
 c, s = np.cos(theta), np.sin(theta)
@@ -75,12 +76,19 @@ direction = np.random.randn(3)
 direction /= np.linalg.norm(direction)
 
 t = 0 * direction  # drift magnitude ~30 cm
+=======
+R = random_rotation_matrix(max_angle_deg=5)  # small rotation
+direction = np.random.randn(3)
+direction /= np.linalg.norm(direction)
+t = 0.3 * direction  # drift magnitude ~30 cm
+>>>>>>> parent of b5bdb80 (add visulizer)
 
 # 2.4 Apply rigid transform only to selected points
 # drifted_points = points.copy()
 # #Look into this 
 # drifted_points[drift_mask] = (R @ points[drift_mask].T).T + t
 
+<<<<<<< HEAD
 # print(drifted_points)
 
 
@@ -123,3 +131,6 @@ pcd_drift.colors = o3d.utility.Vector3dVector(
 )
 
 o3d.visualization.draw_geometries([pcd_clean, pcd_drift])
+=======
+print(drifted_points)
+>>>>>>> parent of b5bdb80 (add visulizer)
