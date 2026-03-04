@@ -10,3 +10,6 @@ rgbd_dataset_freiburg1_xyz/
 ORB_SLAM3/
 .vs/
 vcpkg/
+PointCloudVisualizer.cs.txt
+PointCloudManager.cs.txt
+start.ipynb
