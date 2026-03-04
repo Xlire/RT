@@ -6,7 +6,7 @@ import copy  # for deep copies of point clouds
 # ---------------------------------------------------------
 # 1. Load Unity point cloud
 # ---------------------------------------------------------
-data = np.loadtxt("test_pointcloud.txt")
+data = np.loadtxt("test_pointcloud2.txt")
 
 points = data[:, :3]                 # X Y Z
 colors = data[:, 3:6] / 255.0        # Normalize RGB to [0,1]
@@ -17,8 +17,11 @@ timestamps = data[:, 6]              # Time of each point
 # 2. Simulate object-level drift (rigid transform on a difine region)
 # ---------------------------------------------------------
 
-# 2.1 Define a region (example: points with x > 0 and z < 1)
-region_mask = (points[:, 0] > 0) & (points[:, 2] < 10)
+#Set random seed
+np.random.seed(42)   # or any integer you like
+
+# 2.1 Define a region (example: points with x > 0 and z < 1) whole plane:  np.ones(len(points), dtype=bool)
+region_mask = np.ones(len(points), dtype=bool)
 
 # 2.2 Choose a time threshold t0
 t0 = np.percentile(timestamps, 50)   # drift starts halfway through the scan
@@ -42,10 +45,10 @@ def random_rotation_matrix(max_angle_deg=10):
     ])
     return R
 
-R = random_rotation_matrix(max_angle_deg=25)  # small rotation
+R = random_rotation_matrix(max_angle_deg=45)  # small rotation
 direction = np.random.randn(3)
 direction /= np.linalg.norm(direction)
-t = 1.5 * direction  # drift magnitude ~30 cm
+t = 4 * direction  # drift magnitude ~30 cm
 
 #2.4 Apply rigid transform only to selected points
 drifted_points = points.copy()
@@ -106,23 +109,27 @@ rmse_th    = 0.05    # require less than 5 cm average error
 # maximum correspondence distance for ICP (in meters)
 threshold = 0.1      # allow matches within 10 cm
 
-max_iters = 10       # safety stop (so we don’t loop forever)
+max_iters = 100      # safety stop (so we don’t loop forever)
+
+# Estimate normals for both clouds (required for point-to-plane ICP)
+pcd_clean.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
 # Make a copy of the drifted cloud to correct step-by-step
 # open3d PointCloud has no clone() method, use a deep copy instead
 pcd_current = copy.deepcopy(pcd_drift)
+pcd_current.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
 print("\n=== Phase 2: Iterative Correction Loop ===")
 
 for i in range(max_iters):
 
-    # Run ICP with current estimate
+    # Run ICP with current estimate (point-to-plane)
     reg = o3d.pipelines.registration.registration_icp(
         pcd_current,
         pcd_clean,
         threshold,
         np.eye(4),
-        o3d.pipelines.registration.TransformationEstimationPointToPoint()
+        o3d.pipelines.registration.TransformationEstimationPointToPlane()
     )
 
     fitness = reg.fitness
@@ -138,6 +145,8 @@ for i in range(max_iters):
     # Otherwise apply correction transform
     T_corr = reg.transformation
     pcd_current.transform(T_corr)
+    # Re-estimate normals after transformation
+    pcd_current.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
 else:
     print("Reached max iterations — alignment may still be imperfect.")
