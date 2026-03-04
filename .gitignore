@@ -9,3 +9,4 @@ clean_output.txt
 rgbd_dataset_freiburg1_xyz/
 ORB_SLAM3/
 .vs/
+vcpkg/

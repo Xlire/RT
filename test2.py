@@ -1,5 +1,7 @@
 import numpy as np
 import open3d as o3d
+import copy  # for deep copies of point clouds
+
 
 # ---------------------------------------------------------
 # 1. Load Unity point cloud
@@ -94,41 +96,52 @@ pcd_drift.colors = o3d.utility.Vector3dVector(
 o3d.visualization.draw_geometries([pcd_clean, pcd_drift])
 
 # ---------------------------------------------------------
-# 6. Phase 2 — Global Drift Detection with ICP
+# 6. Phase 2 (FOUNDATION) — Repeated ICP correction
 # ---------------------------------------------------------
 
-# ICP parameters
-threshold = 0.5  # max correspondence distance
-trans_init = np.eye(4)
+# Set simple thresholds for "good alignment"
+fitness_th = 0.75    # require at least 75% good correspondences
+rmse_th    = 0.05    # require less than 5 cm average error
 
-reg = o3d.pipelines.registration.registration_icp(
-    pcd_drift, 
-    pcd_clean, 
-    threshold, 
-    trans_init,
-    o3d.pipelines.registration.TransformationEstimationPointToPoint()
-)
+# maximum correspondence distance for ICP (in meters)
+threshold = 0.1      # allow matches within 10 cm
 
-print("\n=== Global ICP Results ===")
-print("ICP fitness:", reg.fitness)
-print("ICP RMSE:", reg.inlier_rmse)
-print("Estimated correction transform:\n", reg.transformation)
+max_iters = 10       # safety stop (so we don’t loop forever)
 
-# Apply correction
-T = reg.transformation
-pcd_drift_corrected = pcd_drift.transform(T)
+# Make a copy of the drifted cloud to correct step-by-step
+# open3d PointCloud has no clone() method, use a deep copy instead
+pcd_current = copy.deepcopy(pcd_drift)
 
-# Visualize corrected cloud vs clean cloud
-pcd_drift_corrected.colors = o3d.utility.Vector3dVector(np.tile([1,0,0], (points.shape[0],1)))  # red
+print("\n=== Phase 2: Iterative Correction Loop ===")
 
-o3d.visualization.draw_geometries([pcd_clean, pcd_drift_corrected])
+for i in range(max_iters):
 
-# Evaluate error before and after correction
-error_before = np.linalg.norm(points - drifted_points, axis=1)
-error_after = np.linalg.norm(points - np.asarray(pcd_drift_corrected.points), axis=1)
+    # Run ICP with current estimate
+    reg = o3d.pipelines.registration.registration_icp(
+        pcd_current,
+        pcd_clean,
+        threshold,
+        np.eye(4),
+        o3d.pipelines.registration.TransformationEstimationPointToPoint()
+    )
 
-print("\n=== Error Statistics ===")
-print("Mean drift before correction:", error_before.mean())
-print("Max drift before correction:", error_before.max())
-print("Mean drift after correction:", error_after.mean())
-print("Max drift after correction:", error_after.max())
+    fitness = reg.fitness
+    rmse = reg.inlier_rmse
+
+    print(f"[Iter {i}] fitness={fitness:.3f},  rmse={rmse:.4f}")
+
+    # Check if alignment is good enough
+    if (fitness >= fitness_th) and (rmse <= rmse_th):
+        print("✓ Alignment good — stopping correction loop.")
+        break
+
+    # Otherwise apply correction transform
+    T_corr = reg.transformation
+    pcd_current.transform(T_corr)
+
+else:
+    print("Reached max iterations — alignment may still be imperfect.")
+
+# Visualize final corrected cloud
+pcd_current.colors = o3d.utility.Vector3dVector(np.tile([1, 0, 0], (points.shape[0], 1)))
+o3d.visualization.draw_geometries([pcd_clean, pcd_current])
