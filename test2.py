@@ -18,14 +18,14 @@ timestamps = data[:, 6]              # Time of each point
 # ---------------------------------------------------------
 
 #Set random seed
-np.random.seed(42)   # or any integer you like
+np.random.seed(0)   # or any integer you like
 
 # 2.1 Define a region (example: points with x > 0 and z < 1) whole plane:  np.ones(len(points), dtype=bool)
 region_mask = np.ones(len(points), dtype=bool)
 
 # 2.2 Choose a time threshold t0
 t0 = np.percentile(timestamps, 50)   # drift starts halfway through the scan
-time_mask = timestamps >= t0
+time_mask = np.ones(len(points), dtype=bool)
 
 # Combined mask: points in region AND after t0
 drift_mask = region_mask & time_mask
@@ -48,7 +48,7 @@ def random_rotation_matrix(max_angle_deg=10):
 R = random_rotation_matrix(max_angle_deg=45)  # small rotation
 direction = np.random.randn(3)
 direction /= np.linalg.norm(direction)
-t = 4 * direction  # drift magnitude ~30 cm
+t = 4 * direction  # drift magnitude ~400 cm
 
 #2.4 Apply rigid transform only to selected points
 drifted_points = points.copy()
@@ -111,17 +111,24 @@ threshold = 0.1      # allow matches within 10 cm
 
 max_iters = 100      # safety stop (so we don’t loop forever)
 
-# Estimate normals for both clouds (required for point-to-plane ICP)
-pcd_clean.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
-
 # Make a copy of the drifted cloud to correct step-by-step
 # open3d PointCloud has no clone() method, use a deep copy instead
 pcd_current = copy.deepcopy(pcd_drift)
-pcd_current.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+# Estimate normals for both clouds (required for point-to-plane ICP)
+pcd_clean.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+pcd_current.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
 print("\n=== Phase 2: Iterative Correction Loop ===")
 
 for i in range(max_iters):
+    if i < 5:
+        threshold = 1.0
+    elif i < 100:
+        threshold = 0.8
+    else:
+        threshold = 0.5
+
 
     # Run ICP with current estimate (point-to-plane)
     reg = o3d.pipelines.registration.registration_icp(
@@ -135,7 +142,7 @@ for i in range(max_iters):
     fitness = reg.fitness
     rmse = reg.inlier_rmse
 
-    print(f"[Iter {i}] fitness={fitness:.3f},  rmse={rmse:.4f}")
+    print(f"[Iter {i}] fitness={fitness:.5f},  rmse={rmse:.6f}")
 
     # Check if alignment is good enough
     if (fitness >= fitness_th) and (rmse <= rmse_th):
