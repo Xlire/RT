@@ -13,3 +13,5 @@ vcpkg/
 PointCloudVisualizer.cs.txt
 PointCloudManager.cs.txt
 start.ipynb
+*.json
+*.png
